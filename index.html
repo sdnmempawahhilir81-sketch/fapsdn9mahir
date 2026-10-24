@@ -553,7 +553,7 @@
 
     function initAppSession() {
         document.getElementById('headerUserRole').innerText = `${currentUserData.name} (${currentUserData.role.toUpperCase()})`;
-        document.getElementById('headerBrandTitle').innerText = `🏢 FAP - Ferlink Absensi`;
+        document.getElementById('headerBrandTitle').innerText = `🏢 SD Negeri 09 Mempawah Hilir`;
         
         db.collection("fap_config").doc("settings").get().then((doc) => {
             if (doc.exists) {
