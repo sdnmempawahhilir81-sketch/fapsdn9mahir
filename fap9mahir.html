@@ -1,0 +1,933 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ferlink Absensi Pegawai (FAP)</title>
+    <!-- SheetJS untuk Ekspor Excel -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <!-- Firebase SDK (Compat Version) -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(rgba(15, 23, 42, 0.75), rgba(30, 41, 59, 0.75)), url('sekolah.jpeg') no-repeat center center fixed;
+            background-size: cover;
+            color: #333;
+            padding-bottom: 40px;
+            min-height: 100vh;
+        }
+
+        header {
+            background: rgba(15, 23, 42, 0.9);
+            backdrop-filter: blur(8px);
+            color: white;
+            padding: 18px 25px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .brand-title {
+            font-size: 18px;
+            font-weight: 800;
+            letter-spacing: 0.5px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .container { max-width: 750px; margin: 20px auto; padding: 0 15px; }
+
+        .card {
+            background: rgba(255, 255, 255, 0.93);
+            backdrop-filter: blur(6px);
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.2);
+        }
+
+        .card-title {
+            font-size: 15px;
+            font-weight: bold;
+            color: #1e293b;
+            margin-bottom: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .form-group { margin-bottom: 15px; }
+        .form-group label {
+            display: block;
+            font-size: 12px;
+            font-weight: bold;
+            color: #64748b;
+            margin-bottom: 5px;
+        }
+
+        input[type="text"], input[type="email"], input[type="password"], input[type="number"], select, input[type="date"], textarea {
+            width: 100%;
+            padding: 11px 14px;
+            border: 2px solid #cbd5e1;
+            border-radius: 10px;
+            font-family: inherit;
+            font-size: 14px;
+            outline: none;
+            background: #fff;
+        }
+        input:focus, select:focus, textarea:focus { border-color: #3b82f6; }
+
+        .btn {
+            padding: 11px 16px;
+            border: none;
+            border-radius: 10px;
+            font-weight: bold;
+            font-size: 13px;
+            cursor: pointer;
+            transition: 0.2s;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+        .btn-primary { background: #3b82f6; color: white; width: 100%; }
+        .btn-primary:hover { background: #2563eb; }
+        .btn-success { background: #10b981; color: white; }
+        .btn-success:hover { background: #059669; }
+        .btn-danger { background: #ef4444; color: white; }
+        .btn-outline { background: #f8fafc; color: #475569; border: 1px solid #cbd5e1; }
+
+        #authScreen {
+            position: fixed;
+            inset: 0;
+            background: linear-gradient(rgba(15, 23, 42, 0.75), rgba(30, 41, 59, 0.75)), url('sekolah.jpeg') no-repeat center center/cover;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            padding: 20px;
+            overflow-y: auto;
+        }
+        .auth-box {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(8px);
+            width: 100%;
+            max-width: 380px;
+            padding: 25px;
+            border-radius: 20px;
+            text-align: center;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.4);
+            margin: auto;
+        }
+        .auth-box h2 { color: #1e293b; margin-bottom: 5px; font-size: 20px; }
+        .auth-box p { color: #64748b; font-size: 13px; margin-bottom: 15px; }
+        #authMessage { margin-top: 10px; font-size: 12px; font-weight: bold; }
+
+        .camera-container {
+            width: 100%;
+            background: #000;
+            border-radius: 12px;
+            overflow: hidden;
+            text-align: center;
+            position: relative;
+            margin-bottom: 12px;
+        }
+        video, canvas { width: 100%; max-height: 300px; object-fit: cover; display: block; }
+        
+        .status-badge {
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: bold;
+            margin-bottom: 12px;
+            display: block;
+            text-align: center;
+        }
+        .badge-ok { background: #d1fae5; color: #065f46; border: 1px solid #a7f3d0; }
+        .badge-fail { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
+
+        .app-section { display: none; }
+        .app-section.active { display: block; }
+
+        .log-item {
+            background: rgba(248, 250, 252, 0.9);
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 12px;
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 13px;
+        }
+
+        /* POP-UP MODAL MENGAMBANG DI TENGAH LAYAR */
+        #kepsekModalOverlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.75);
+            backdrop-filter: blur(5px);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 10000;
+            padding: 20px;
+            animation: fadeIn 0.3s ease-in-out;
+        }
+        .kepsek-modal-box {
+            background: #ffffff;
+            width: 100%;
+            max-width: 420px;
+            border-radius: 20px;
+            padding: 25px;
+            text-align: center;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+            border: 3px solid #10b981;
+            animation: scaleUp 0.3s ease-in-out;
+        }
+        .kepsek-modal-avatar {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 4px solid #10b981;
+            margin: 0 auto 15px auto;
+            box-shadow: 0 8px 16px rgba(16, 185, 129, 0.25);
+        }
+        .kepsek-modal-box h3 {
+            color: #065f46;
+            font-size: 16px;
+            margin-bottom: 8px;
+            font-weight: 800;
+        }
+        .kepsek-modal-box p {
+            color: #1e293b;
+            font-size: 14px;
+            line-height: 1.5;
+            font-weight: 600;
+            margin-bottom: 15px;
+        }
+        .kepsek-modal-sub {
+            font-size: 12px;
+            color: #64748b;
+            font-weight: bold;
+            margin-bottom: 20px;
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        @keyframes scaleUp {
+            from { transform: scale(0.8); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+
+        footer { text-align: center; margin-top: 30px; font-size: 12px; color: #cbd5e1; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <!-- HALAMAN LOGIN & REGISTRASI RINGKAS -->
+    <div id="authScreen">
+        <div class="auth-box">
+            <div style="font-size: 40px; margin-bottom: 8px;">🏢</div>
+            <h2>ABSENSI SDN 09 MEMPAWAH HILIR</h2>
+            <p>Mari Jaga Kedisiplinan Kita</p>
+
+            <div class="form-group" style="text-align: left; margin-bottom: 10px;">
+                <label>Pilih Peran Akun:</label>
+                <select id="roleSelect" onchange="toggleRoleInput()">
+                    <option value="pegawai">Pegawai / Karyawan</option>
+                    <option value="pimpinan">Pimpinan / Admin Sekolah</option>
+                </select>
+            </div>
+
+            <div id="pegawaiNameGroup" class="form-group" style="text-align: left; margin-bottom: 10px;">
+                <label>Nama Lengkap Pegawai:</label>
+                <input type="text" id="regName" placeholder="Contoh: Budi Santoso">
+            </div>
+
+            <div class="form-group" style="text-align: left; margin-bottom: 10px;">
+                <label>Email Akun:</label>
+                <input type="email" id="authEmail" placeholder="email@sekolah.sch.id">
+            </div>
+
+            <div class="form-group" style="text-align: left; margin-bottom: 15px;">
+                <label>Password:</label>
+                <input type="password" id="authPassword" placeholder="Minimal 6 karakter">
+            </div>
+
+            <button class="btn btn-primary" onclick="loginUser()" style="margin-bottom: 8px;">🔓 Masuk (Login)</button>
+            <button class="btn btn-outline" onclick="registerUser()" style="width: 100%; font-size: 12px;">📝 Daftar Akun Baru</button>
+            
+            <div id="authMessage"></div>
+        </div>
+    </div>
+
+    <!-- HEADER UTAMA APLIKASI -->
+    <header>
+        <div class="brand-title" id="headerBrandTitle">🏢 FAP - Ferlink Absensi</div>
+        <div>
+            <span id="headerUserRole" style="font-size: 12px; background: rgba(255,255,255,0.15); padding: 4px 10px; border-radius: 6px; margin-right: 8px;">-</span>
+            <button class="btn btn-danger" style="padding: 5px 10px; font-size: 11px;" onclick="logoutUser()">Keluar</button>
+        </div>
+    </header>
+
+    <div class="container">
+
+        <!-- ================= PANEL PEGAWAI ================= -->
+        <div id="panelPegawai" class="app-section">
+            <div class="card">
+                <div class="card-title">📍 Verifikasi Lokasi Kantor/Sekolah (Geofencing)</div>
+                <div id="gpsStatusBox" class="status-badge badge-fail">Mendeteksi posisi GPS Anda...</div>
+                <div style="font-size: 12px; color: #64748b; margin-bottom: 12px;" id="gpsDetailText">Pastikan izin lokasi browser aktif.</div>
+                <button class="btn btn-outline" style="width: 100%; font-size: 12px;" onclick="checkGPSPosition()">🔄 Perbarui Lokasi GPS</button>
+            </div>
+
+            <div class="card">
+                <div class="card-title">📸 Ambil Foto Selfie Kehadiran</div>
+                <div class="camera-container">
+                    <video id="videoElement" autoplay playsinline></video>
+                    <canvas id="canvasElement" style="display:none;"></canvas>
+                </div>
+                <button class="btn btn-outline" style="width: 100%; margin-bottom: 10px;" onclick="startCamera()">📷 Nyalakan Kamera</button>
+                <div id="photoPreviewArea" style="margin-top: 10px; text-align: center; display: none;">
+                    <img id="capturedImage" style="max-width: 150px; border-radius: 10px; border: 2px solid #cbd5e1;" alt="Selfie">
+                    <span style="display: block; font-size: 11px; color: #10b981; font-weight: bold; margin-top: 4px;">✅ Foto Selfie Berhasil Diambil</span>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-title">⏱️ Rekam Presensi Harian</div>
+                <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                    <button class="btn btn-success" style="flex: 1; padding: 14px;" onclick="recordAttendance('Masuk')">📥 Absen Masuk</button>
+                    <button class="btn btn-danger" style="flex: 1; padding: 14px;" onclick="recordAttendance('Pulang')">📤 Absen Pulang</button>
+                </div>
+
+                <!-- Bagian Pengajuan Izin / Sakit -->
+                <div style="border-top: 1px dashed #cbd5e1; padding-top: 14px;">
+                    <div class="form-group">
+                        <label>Atau Ajukan Keterangan Tidak Masuk:</label>
+                        <select id="statusIzinSakit" style="margin-bottom: 8px;">
+                            <option value="Izin">Izin</option>
+                            <option value="Sakit">Sakit</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Tuliskan Alasan / Keterangan:</label>
+                        <input type="text" id="alasanKeterangan" placeholder="Contoh: Mengurus keperluan keluarga / Demam berobat">
+                    </div>
+                    <button class="btn btn-outline" style="width: 100%; border-color: #f59e0b; color: #d97706;" onclick="recordPermission()">📝 Kirim Pengajuan Izin/Sakit</button>
+                </div>
+
+                <div id="attendanceMsg" style="margin-top: 12px; font-size: 13px; font-weight: bold; text-align: center;"></div>
+            </div>
+
+            <div class="card">
+                <div class="card-title">📜 Riwayat Absensi Pribadi Anda</div>
+                <div id="myHistoryList">Memuat riwayat...</div>
+            </div>
+        </div>
+
+        <!-- ================= PANEL PIMPINAN / ADMIN ================= -->
+        <div id="panelPimpinan" class="app-section">
+            <div class="card">
+                <div class="card-title">⚙️ Pengaturan Titik Pusat Sekolah</div>
+                <div class="form-group">
+                    <label>Latitude Sekolah:</label>
+                    <input type="text" id="cfgLat" placeholder="-6.200000">
+                </div>
+                <div class="form-group">
+                    <label>Longitude Sekolah:</label>
+                    <input type="text" id="cfgLng" placeholder="106.816666">
+                </div>
+                <div class="form-group">
+                    <label>Radius Maksimal (Meter):</label>
+                    <input type="number" id="cfgRadius" value="100">
+                </div>
+                <button class="btn btn-primary" onclick="saveCompanyConfig()">💾 Simpan Titik Lokasi</button>
+            </div>
+
+            <!-- Panel Pantau Kehadiran Harian -->
+            <div class="card">
+                <div class="card-title">
+                    <span>📊 Pantau Kehadiran Pegawai</span>
+                </div>
+                
+                <div style="display: flex; gap: 10px; margin-bottom: 12px; align-items: flex-end;">
+                    <div class="form-group" style="flex: 1; margin-bottom: 0;">
+                        <label>Pilih Tanggal Pantau:</label>
+                        <input type="date" id="viewDateInput" onchange="loadAttendanceByDate()">
+                    </div>
+                    <button class="btn btn-outline" style="padding: 11px 14px; font-size: 12px;" onclick="setTodayView()">📅 Hari Ini</button>
+                </div>
+
+                <div id="allAttendanceContainer">Memuat data pegawai...</div>
+            </div>
+
+            <!-- Panel Unduh Rekap (Excel) -->
+            <div class="card">
+                <div class="card-title">📥 Unduh Rekap Absensi (Excel)</div>
+                <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+                    <div class="form-group" style="flex: 1; margin-bottom: 0;">
+                        <label>Dari Tanggal:</label>
+                        <input type="date" id="filterStartDate">
+                    </div>
+                    <div class="form-group" style="flex: 1; margin-bottom: 0;">
+                        <label>Sampai Tanggal:</label>
+                        <input type="date" id="filterEndDate">
+                    </div>
+                </div>
+                <button class="btn btn-success" style="width: 100%; font-size: 12px;" onclick="exportExcelPimpinan()">📥 Download File Excel</button>
+            </div>
+        </div>
+
+        <footer>
+            &copy; 2026 Ferlink-Media. All Rights Reserved
+        </footer>
+    </div>
+
+    <!-- POP-UP MENGAMBANG PESAN KEPALA SEKOLAH (DEFAULT TERSEMBUNYI) -->
+    <div id="kepsekModalOverlay" style="display: none;">
+        <div class="kepsek-modal-box">
+            <img src="hidaya.png" alt="Foto Kepala Sekolah" class="kepsek-modal-avatar">
+            <h3>💬 Pesan Kepala Sekolah</h3>
+            <p id="kepsekModalMessage">"Terima kasih sudah melakukan absensi hari ini. Selamat bertugas dan tetap semangat!"</p>
+            <span class="kepsek-modal-sub">— Hidaya, S.Pd. (Kepala SDN 09 Mempawah Hilir)</span>
+            <button class="btn btn-success" style="width: 100%; padding: 12px;" onclick="closeKepsekModal()">👍 Terima Kasih</button>
+        </div>
+    </div>
+
+<script>
+    // Konfigurasi Firebase Sekolah Anda
+    const firebaseConfig = {
+      apiKey: "AIzaSyBLI3CCf1xmz57d20KhIeasWCXBXUV_JBc",
+      authDomain: "fapsdn9mahir.firebaseapp.com",
+      projectId: "fapsdn9mahir",
+      storageBucket: "fapsdn9mahir.firebasestorage.app",
+      messagingSenderId: "142782065158",
+      appId: "1:142782065158:web:30f9be6a796de08fc37187",
+      measurementId: "G-KJDSP3P9PQ"
+    };
+
+    // Inisialisasi Firebase
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+
+    let currentUserData = null;
+    let currentSelfieBase64 = null;
+    let userCurrentLat = null;
+    let userCurrentLng = null;
+    let isWithinRadius = false;
+
+    let companySettings = { lat: -6.200000, lng: 106.816666, radius: 100 };
+
+    document.addEventListener("DOMContentLoaded", function() {
+        const todayStr = new Date().toISOString().split('T')[0];
+        const viewDateInput = document.getElementById('viewDateInput');
+        if(viewDateInput) viewDateInput.value = todayStr;
+        
+        const today = new Date();
+        const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+        const startInput = document.getElementById('filterStartDate');
+        const endInput = document.getElementById('filterEndDate');
+        
+        if(startInput && endInput) {
+            startInput.valueAsDate = firstDay;
+            endInput.valueAsDate = today;
+        }
+
+        // Cek Sesi Login Otomatis
+        auth.onAuthStateChanged((user) => {
+            if (user) {
+                db.collection("fap_users").doc(user.uid).get().then((doc) => {
+                    if (doc.exists) {
+                        currentUserData = doc.data();
+                        document.getElementById('authScreen').style.display = 'none';
+                        initAppSession();
+                    }
+                });
+            }
+        });
+    });
+
+    function formatTimestamp(ts) {
+        if (!ts) return '-';
+        let dateObj = ts.toDate ? ts.toDate() : new Date(ts);
+        return dateObj.toLocaleTimeString();
+    }
+
+    function toggleRoleInput() {
+        const role = document.getElementById('roleSelect').value;
+        document.getElementById('pegawaiNameGroup').style.display = (role === 'pegawai') ? 'block' : 'none';
+    }
+
+    // Pendaftaran Akun Baru
+    function registerUser() {
+        const email = document.getElementById('authEmail').value.trim();
+        const password = document.getElementById('authPassword').value;
+        const role = document.getElementById('roleSelect').value;
+        const name = document.getElementById('regName').value.trim();
+        const msg = document.getElementById('authMessage');
+
+        if (!email || !password) {
+            msg.style.color = '#ef4444';
+            msg.innerText = '❌ Email dan password wajib diisi!';
+            return;
+        }
+        if (role === 'pegawai' && !name) {
+            msg.style.color = '#ef4444';
+            msg.innerText = '❌ Nama lengkap pegawai wajib diisi!';
+            return;
+        }
+
+        auth.createUserWithEmailAndPassword(email, password)
+            .then((res) => {
+                const uid = res.user.uid;
+                db.collection("fap_users").doc(uid).set({
+                    uid: uid,
+                    email: email,
+                    role: role,
+                    name: (role === 'pegawai') ? name : 'Pimpinan / Admin'
+                }).then(() => {
+                    msg.style.color = '#10b981';
+                    msg.innerText = '✅ Pendaftaran berhasil! Silakan klik Masuk (Login).';
+                });
+            })
+            .catch(err => {
+                msg.style.color = '#ef4444';
+                msg.innerText = '❌ Gagal Daftar: ' + err.message;
+            });
+    }
+
+    // Login User
+    function loginUser() {
+        const email = document.getElementById('authEmail').value.trim();
+        const password = document.getElementById('authPassword').value;
+        const msg = document.getElementById('authMessage');
+
+        if (!email || !password) {
+            msg.style.color = '#ef4444';
+            msg.innerText = '❌ Masukkan email dan password!';
+            return;
+        }
+
+        auth.signInWithEmailAndPassword(email, password)
+            .then((res) => {
+                const uid = res.user.uid;
+                db.collection("fap_users").doc(uid).get().then((doc) => {
+                    if (doc.exists) {
+                        currentUserData = doc.data();
+                        document.getElementById('authScreen').style.display = 'none';
+                        initAppSession();
+                    } else {
+                        msg.style.color = '#ef4444';
+                        msg.innerText = '❌ Data profil pengguna tidak ditemukan di database.';
+                    }
+                });
+            })
+            .catch(err => {
+                msg.style.color = '#ef4444';
+                msg.innerText = '❌ Login Gagal: Periksa kembali email dan password.';
+            });
+    }
+
+    function logoutUser() {
+        auth.signOut().then(() => { location.reload(); });
+    }
+
+    function initAppSession() {
+        document.getElementById('headerUserRole').innerText = `${currentUserData.name} (${currentUserData.role.toUpperCase()})`;
+        document.getElementById('headerBrandTitle').innerText = `🏢 FAP - Ferlink Absensi`;
+        
+        db.collection("fap_config").doc("settings").get().then((doc) => {
+            if (doc.exists) {
+                companySettings = doc.data();
+            }
+            if (currentUserData.role === 'pegawai') {
+                document.getElementById('panelPegawai').classList.add('active');
+                startCamera();
+                checkGPSPosition();
+                loadMyHistory();
+            } else {
+                document.getElementById('panelPimpinan').classList.add('active');
+                document.getElementById('cfgLat').value = companySettings.lat || -6.200000;
+                document.getElementById('cfgLng').value = companySettings.lng || 106.816666;
+                document.getElementById('cfgRadius').value = companySettings.radius || 100;
+                
+                const todayStr = new Date().toISOString().split('T')[0];
+                const viewInput = document.getElementById('viewDateInput');
+                if (viewInput) {
+                    viewInput.value = todayStr;
+                }
+                loadAttendanceByDate();
+            }
+        });
+    }
+
+    // --- FITUR GPS & GEOFENCING ---
+    function checkGPSPosition() {
+        const box = document.getElementById('gpsStatusBox');
+        const detail = document.getElementById('gpsDetailText');
+
+        if (!navigator.geolocation) {
+            box.className = 'status-badge badge-fail';
+            box.innerText = '❌ Browser tidak mendukung GPS.';
+            return;
+        }
+
+        box.className = 'status-badge';
+        box.style.background = '#e2e8f0';
+        box.style.color = '#475569';
+        box.innerText = '⏳ Mengambil koordinat GPS Anda...';
+
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                userCurrentLat = position.coords.latitude;
+                userCurrentLng = position.coords.longitude;
+
+                const distance = calculateDistance(userCurrentLat, userCurrentLng, companySettings.lat, companySettings.lng);
+                
+                if (distance <= companySettings.radius) {
+                    isWithinRadius = true;
+                    box.className = 'status-badge badge-ok';
+                    box.innerText = `✅ Anda berada di dalam area sekolah (${Math.round(distance)} meter dari titik pusat).`;
+                } else {
+                    isWithinRadius = false;
+                    box.className = 'status-badge badge-fail';
+                    box.innerText = `❌ Anda di luar radius sekolah! Jarak Anda ${Math.round(distance)} meter (Maksimal ${companySettings.radius}m).`;
+                }
+                detail.innerText = `Koordinat Anda: ${userCurrentLat.toFixed(5)}, ${userCurrentLng.toFixed(5)}`;
+            },
+            (error) => {
+                box.className = 'status-badge badge-fail';
+                box.innerText = '❌ Gagal mendeteksi GPS. Pastikan izin lokasi diaktifkan.';
+            },
+            { enableHighAccuracy: true }
+        );
+    }
+
+    function calculateDistance(lat1, lon1, lat2, lon2) {
+        const R = 6371e3;
+        const φ1 = lat1 * Math.PI/180;
+        const φ2 = lat2 * Math.PI/180;
+        const Δφ = (lat2-lat1) * Math.PI/180;
+        const Δλ = (lon2-lon1) * Math.PI/180;
+
+        const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+                  Math.cos(φ1) * Math.cos(φ2) *
+                  Math.sin(Δλ/2) * Math.sin(Δλ/2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        return R * c;
+    }
+
+    // --- FITUR KAMERA & SELFIE ---
+    function startCamera() {
+        const video = document.getElementById('videoElement');
+        navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false })
+            .then((stream) => {
+                video.srcObject = stream;
+            })
+            .catch(err => {
+                console.log("Kamera tidak aktif:", err);
+            });
+    }
+
+    function captureSelfie() {
+        const video = document.getElementById('videoElement');
+        const canvas = document.getElementById('canvasElement');
+        canvas.width = video.videoWidth || 320;
+        canvas.height = video.videoHeight || 240;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        
+        currentSelfieBase64 = canvas.toDataURL('image/jpeg', 0.6);
+        document.getElementById('capturedImage').src = currentSelfieBase64;
+        document.getElementById('photoPreviewArea').style.display = 'block';
+    }
+
+    // --- REKAM ABSENSI (PEGAWAI) ---
+    function recordAttendance(type) {
+        const msg = document.getElementById('attendanceMsg');
+
+        if (!isWithinRadius) {
+            msg.style.color = '#ef4444';
+            msg.innerText = `❌ Absen ditolak! Anda berada di luar radius sekolah.`;
+            return;
+        }
+
+        captureSelfie();
+
+        if (!currentSelfieBase64) {
+            msg.style.color = '#ef4444';
+            msg.innerText = `❌ Gagal mengambil foto selfie.`;
+            return;
+        }
+
+        const todayStr = new Date().toISOString().split('T')[0];
+        const docId = `${currentUserData.uid}_${todayStr}`;
+
+        const attendanceData = {
+            uid: currentUserData.uid,
+            name: currentUserData.name,
+            date: todayStr,
+            lat: userCurrentLat,
+            lng: userCurrentLng,
+            selfie: currentSelfieBase64,
+            status: 'Hadir'
+        };
+
+        if (type === 'Masuk') {
+            attendanceData.timeInServer = firebase.firestore.FieldValue.serverTimestamp();
+        } else {
+            attendanceData.timeOutServer = firebase.firestore.FieldValue.serverTimestamp();
+        }
+
+        db.collection("fap_attendance").doc(docId).set(attendanceData, { merge: true })
+            .then(() => {
+                msg.style.color = '#10b981';
+                msg.innerText = `✅ Berhasil Absen ${type}! Waktu tercatat di server.`;
+                
+                // MUNCULKAN POP-UP MENGAMBANG PESAN KEPALA SEKOLAH
+                const modal = document.getElementById('kepsekModalOverlay');
+                const modalText = document.getElementById('kepsekModalMessage');
+                if (type === 'Masuk') {
+                    modalText.innerText = `"Terima kasih ${currentUserData.name} sudah melakukan absensi masuk hari ini. Selamat bertugas dan selamat mengajar!"`;
+                } else {
+                    modalText.innerText = `"Terima kasih ${currentUserData.name} sudah melakukan absensi pulang. Selamat beristirahat, sampai jumpa esok hari!"`;
+                }
+                modal.style.display = 'flex';
+
+                loadMyHistory();
+            })
+            .catch(err => {
+                msg.style.color = '#ef4444';
+                msg.innerText = `❌ Gagal menyimpan ke cloud: ${err.message}`;
+            });
+    }
+
+    // --- REKAM IZIN / SAKIT (PEGAWAI) ---
+    function recordPermission() {
+        const msg = document.getElementById('attendanceMsg');
+        const statusType = document.getElementById('statusIzinSakit').value; 
+        const alasan = document.getElementById('alasanKeterangan').value.trim();
+
+        if (!alasan) {
+            msg.style.color = '#ef4444';
+            msg.innerText = `❌ Mohon tuliskan alasan ${statusType.toLowerCase()} Anda!`;
+            return;
+        }
+
+        const todayStr = new Date().toISOString().split('T')[0];
+        const docId = `${currentUserData.uid}_${todayStr}`;
+
+        const permissionData = {
+            uid: currentUserData.uid,
+            name: currentUserData.name,
+            date: todayStr,
+            status: statusType, 
+            reason: alasan,
+            timestamp: firebase.firestore.FieldValue.serverTimestamp()
+        };
+
+        db.collection("fap_attendance").doc(docId).set(permissionData, { merge: true })
+            .then(() => {
+                msg.style.color = '#10b981';
+                msg.innerText = `✅ Pengajuan ${statusType} berhasil dikirim.`;
+                document.getElementById('alasanKeterangan').value = '';
+
+                // MUNCULKAN POP-UP MENGAMBANG SAAT IZIN/SAKIT
+                const modal = document.getElementById('kepsekModalOverlay');
+                const modalText = document.getElementById('kepsekModalMessage');
+                modalText.innerText = `"Pengajuan ${statusType} Anda telah kami terima. Terima kasih sudah memberikan konfirmasi, semoga sehat selalu!"`;
+                modal.style.display = 'flex';
+
+                loadMyHistory();
+            })
+            .catch(err => {
+                msg.style.color = '#ef4444';
+                msg.innerText = `❌ Gagal menyimpan: ${err.message}`;
+            });
+    }
+
+    // Fungsi untuk menutup pop-up modal
+    function closeKepsekModal() {
+        document.getElementById('kepsekModalOverlay').style.display = 'none';
+    }
+
+    function loadMyHistory() {
+        db.collection("fap_attendance")
+            .where("uid", "==", currentUserData.uid)
+            .orderBy("date", "desc")
+            .limit(30)
+            .get()
+            .then((querySnapshot) => {
+                let html = '';
+                querySnapshot.forEach((doc) => {
+                    let d = doc.data();
+                    let statusLabel = d.status || 'Hadir';
+                    let detailInfo = '';
+
+                    if (statusLabel === 'Izin' || statusLabel === 'Sakit') {
+                        detailInfo = `<span style="color: #d97706; font-weight: bold;">Status: ${statusLabel}</span><br><span style="color: #64748b;">Alasan: ${d.reason || '-'}</span>`;
+                    } else {
+                        let tIn = formatTimestamp(d.timeInServer || d.timeIn);
+                        let tOut = formatTimestamp(d.timeOutServer || d.timeOut);
+                        detailInfo = `<span style="color: #10b981;">Masuk: ${tIn}</span> | <span style="color: #ef4444;">Pulang: ${tOut}</span>`;
+                    }
+
+                    html += `
+                        <div class="log-item">
+                            <div>
+                                <strong>📅 ${d.date}</strong><br>
+                                ${detailInfo}
+                            </div>
+                            ${d.selfie ? `<img src="${d.selfie}" style="width:40px; height:40px; border-radius:50%; object-fit:cover;" alt="Foto">` : ''}
+                        </div>
+                    `;
+                });
+                document.getElementById('myHistoryList').innerHTML = html || 'Belum ada riwayat absensi.';
+            })
+            .catch((err) => {
+                console.error("Gagal memuat riwayat:", err);
+                document.getElementById('myHistoryList').innerHTML = 'Gagal memuat riwayat atau indeks database sedang disiapkan.';
+            });
+    }
+
+    // --- PANEL PIMPINAN ---
+    function saveCompanyConfig() {
+        companySettings = {
+            lat: parseFloat(document.getElementById('cfgLat').value),
+            lng: parseFloat(document.getElementById('cfgLng').value),
+            radius: parseInt(document.getElementById('cfgRadius').value)
+        };
+
+        db.collection("fap_config").doc("settings").set(companySettings)
+            .then(() => {
+                alert("✅ Pengaturan titik pusat sekolah berhasil disimpan!");
+            });
+    }
+
+    function setTodayView() {
+        const todayStr = new Date().toISOString().split('T')[0];
+        const viewInput = document.getElementById('viewDateInput');
+        if (viewInput) {
+            viewInput.value = todayStr;
+            loadAttendanceByDate();
+        }
+    }
+
+    function loadAttendanceByDate() {
+        const viewDateInput = document.getElementById('viewDateInput');
+        if (!viewDateInput) return;
+        
+        const selectedDate = viewDateInput.value;
+        if (!selectedDate) return;
+
+        db.collection("fap_attendance")
+            .where("date", "==", selectedDate)
+            .get()
+            .then((querySnapshot) => {
+                let html = '';
+                querySnapshot.forEach((doc) => {
+                    let d = doc.data();
+                    let statusLabel = d.status || 'Hadir';
+                    let detailInfo = '';
+
+                    if (statusLabel === 'Izin' || statusLabel === 'Sakit') {
+                        detailInfo = `<span style="color: #d97706; font-weight: bold;">Status: ${statusLabel}</span><br><span style="color: #64748b;">Alasan: ${d.reason || '-'}</span>`;
+                    } else {
+                        let tIn = formatTimestamp(d.timeInServer || d.timeIn);
+                        let tOut = formatTimestamp(d.timeOutServer || d.timeOut);
+                        detailInfo = `<span style="color: #10b981;">Masuk: ${tIn}</span> | <span style="color: #ef4444;">Pulang: ${tOut}</span><br><span style="font-size: 11px; color: #64748b;">GPS: ${d.lat ? d.lat.toFixed(4) : '-'}, ${d.lng ? d.lng.toFixed(4) : '-'}</span>`;
+                    }
+
+                    let photoSrc = d.selfie;
+                    let photoHtml = photoSrc ? `<img src="${photoSrc}" style="width:45px; height:45px; border-radius:50%; object-fit:cover; border: 1px solid #cbd5e1;" alt="Selfie">` : `<div style="width:45px; height:45px; border-radius:50%; background:#e2e8f0; display:flex; align-items:center; justify-content:center; font-size:10px; color:#64748b;">No Photo</div>`;
+
+                    html += `
+                        <div class="log-item">
+                            <div style="display: flex; align-items: center; gap: 12px;">
+                                ${photoHtml}
+                                <div>
+                                    <strong style="font-size: 14px; color: #1e293b;">${d.name}</strong><br>
+                                    ${detailInfo}
+                                </div>
+                            </div>
+                            <span class="status-badge badge-ok" style="margin:0; padding: 4px 8px;">${statusLabel}</span>
+                        </div>
+                    `;
+                });
+                
+                const container = document.getElementById('allAttendanceContainer');
+                if (container) {
+                    container.innerHTML = html || `Tidak ada data absensi pada tanggal ${selectedDate}.`;
+                }
+            })
+            .catch(err => {
+                console.error("Gagal memuat data pimpinan:", err);
+            });
+    }
+
+    function exportExcelPimpinan() {
+        const startDate = document.getElementById('filterStartDate').value;
+        const endDate = document.getElementById('filterEndDate').value;
+
+        if (!startDate || !endDate) {
+            alert("Pilih rentang tanggal unduh terlebih dahulu!");
+            return;
+        }
+
+        db.collection("fap_attendance")
+            .where("date", ">=", startDate)
+            .where("date", "<=", endDate)
+            .get()
+            .then((querySnapshot) => {
+                let rows = [
+                    [`LAPORAN REKAPITULASI ABSENSI & KETIDAKHADIRAN`],
+                    ["Periode", `: ${startDate} s/d ${endDate}`],
+                    [],
+                    ["No", "Tanggal", "Nama Pegawai", "Status", "Jam Masuk", "Jam Pulang", "Alasan / Ket", "Koordinat GPS"]
+                ];
+
+                let index = 1;
+                querySnapshot.forEach((doc) => {
+                    let d = doc.data();
+                    let tIn = formatTimestamp(d.timeInServer || d.timeIn);
+                    let tOut = formatTimestamp(d.timeOutServer || d.timeOut);
+                    rows.push([
+                        index++, 
+                        d.date, 
+                        d.name, 
+                        d.status || 'Hadir',
+                        tIn, 
+                        tOut, 
+                        d.reason || '-',
+                        `${d.lat || '-'}, ${d.lng || '-'}`
+                    ]);
+                });
+
+                const ws = XLSX.utils.aoa_to_sheet(rows);
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, "Rekap Bulanan");
+                XLSX.writeFile(wb, `Rekap_Absensi_${startDate}_${endDate}.xlsx`);
+            });
+    }
+</script>
+</body>
+</html>
